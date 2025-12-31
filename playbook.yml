@@ -1,0 +1,108 @@
+---
+- name: Deploy Flask Monitoring App
+  hosts: web
+  become: yes
+  vars:
+    app_dir: /opt/monitoring-app
+    docker_compose_version: "v2.21.0"
+  
+  tasks:
+    - name: Update apt package cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install required system packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - software-properties-common
+          - git
+          - python3-pip
+        state: present
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu jammy stable"
+        state: present
+        update_cache: yes
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+
+    - name: Start and enable Docker service
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add vagrant user to docker group
+      user:
+        name: vagrant
+        groups: docker
+        append: yes
+
+    - name: Create application directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        mode: '0755'
+        owner: vagrant
+        group: vagrant
+
+    - name: Copy application code to server
+      copy:
+        src: ../app/
+        dest: "{{ app_dir }}/"
+        mode: '0644'
+        owner: vagrant
+        group: vagrant
+
+    - name: Copy docker-compose.yml to server
+      copy:
+        src: ../docker-compose.yml
+        dest: "{{ app_dir }}/docker-compose.yml"
+        mode: '0644'
+        owner: vagrant
+        group: vagrant
+
+    - name: Stop existing containers if running
+      shell:
+        cmd: "cd {{ app_dir }} && docker compose down || true"
+      become_user: vagrant
+
+    - name: Build and start Docker containers
+      shell:
+        cmd: "cd {{ app_dir }} && docker compose up -d --build"
+      become_user: vagrant
+
+    - name: Wait for application to be ready
+      wait_for:
+        port: 80
+        host: 0.0.0.0
+        timeout: 60
+        delay: 10
+
+    - name: Verify application is running
+      uri:
+        url: http://localhost:80
+        method: GET
+        status_code: 200
+      retries: 5
+      delay: 10
