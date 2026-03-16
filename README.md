@@ -1,5 +1,5 @@
 # Local DevOps Lab Environment
-
+https://mighty-numbers-smash.loca.lt/
 A complete local DevOps lab environment demonstrating Infrastructure as Code (IaC), Configuration Management, Containerization, and System Monitoring. This project creates a professional monitoring dashboard using Flask, deployed with Docker and orchestrated with Ansible - all running locally without any cloud providers.
 
 ## 🏗️ Architecture Overview
